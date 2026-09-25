@@ -1,4 +1,4 @@
-
+# Durable Function using Function chaining
 
 ## 1. Prerequisites (one-off, Windows)
 
@@ -53,9 +53,8 @@ Open **three terminals** in the app folder.
 
 **Terminal 1 – Azurite (storage emulator)**
 
-Start Azurite before `func start`
-
 ```powershell
+# Start Azurite before `func start`
 # depends on local.settings.json: "AzureWebJobsStorage": "UseDevelopmentStorage=true"
 # .azurite folder will be created if not exists
 # .azurite holds local blobs, queues, and tables, and it shouldn't be committed to git.
@@ -83,8 +82,39 @@ Ctrl+C and `func start` again.
 Locally, HTTP function keys aren't enforced, so no `?code=` is needed.
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri "http://localhost:7071/api/orchestrators/cook_recipe"
+# Start the workflow (recipe is optional: pancakes | omelette | anything else)
+$start = Invoke-RestMethod -Method Post -Uri "http://localhost:7071/api/orchestrators/cook_recipe?recipe=omelette"
+
+# Poll its status (the workflow takes ~8 seconds: 4 steps x 2s)
+Invoke-RestMethod $start.statusQueryGetUri
 ```
 
-(Adjust the route once `function_app.py` defines the actual HTTP-triggered starter function.)
+---
 
+## 4. What this demonstrates: function chaining
+
+Files:
+
+- `function_app.py` – entry point. Creates the app, registers the workflow, and defines the HTTP starter (`start_cook_recipe`) that calls `client.start_new(...)`.
+- `workflows/cook_recipe_workflow.py` – the orchestrator and four activities.
+
+The orchestrator runs the activities in order, passing each output to the next:
+
+```
+gather_ingredients -> prep_ingredients -> cook -> plate
+```
+
+## 5. Verify it works
+
+1. **Status progresses.** Polling `statusQueryGetUri` should show `runtimeStatus` go `Running` -> `Completed`. When completed, `output` is:
+   `Your omelette is ready: golden brown, made from 4 ingredients. Enjoy!`
+2. **Steps ran in order.** In the `func start` terminal you should see the activity logs appear about 2 seconds apart: Gathering -> Prepping -> Cooking -> Plating.
+3. **Chaining is real.** The final message contains data created by earlier steps (ingredient count, `golden brown`). Try `?recipe=pancakes` and an unknown recipe and compare.
+4. **Durability (the interesting part).** Start a run, and while it is `Running` press Ctrl+C in the `func start` terminal, then run `func start` again. The orchestration resumes where it left off and completes; finished steps are not re-run (check the logs). This works because progress is checkpointed in Azurite storage.
+5. **Look at the history.** Poll with `&showHistory=true` appended to `statusQueryGetUri` to see each activity scheduled/completed event.
+
+Learning notes:
+
+- Orchestrator code is **replayed** after every step, so it must be deterministic (no `datetime.now()`, random, or I/O). Do that work in activities.
+- Use `yield` for every `call_activity`; the orchestrator is a generator.
+- Activity inputs/outputs must be JSON-serializable.
