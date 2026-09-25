@@ -1,6 +1,5 @@
 import azure.durable_functions as df
 import azure.functions as func
-
 from workflows.nutrition_workflow import bp as nutrition_bp
 
 app = df.DFApp(http_auth_level=func.AuthLevel.FUNCTION)
