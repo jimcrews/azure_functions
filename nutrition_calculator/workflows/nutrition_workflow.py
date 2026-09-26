@@ -22,7 +22,7 @@ import azure.durable_functions as df
 bp = df.Blueprint()
 logger = logging.getLogger(__name__)
 
-API_LATENCY_SECONDS = 2  # pretend each nutrition API call takes a while
+API_LATENCY_SECONDS = 10  # pretend each nutrition API call takes a while
 
 MEALS = {
     "spaghetti": ["pasta", "tomato", "beef", "onion"],

@@ -1,8 +1,10 @@
 # Durable Function using Fan Out / Fan In
 
-## 1. Prerequisites (one-off, Windows)
+## 1. Prerequisites
 
-```powershell
+Using Powershell
+
+```shell
 winget install Microsoft.Azure.FunctionsCoreTools   # provides `func`
 winget install Microsoft.AzureCLI                    # only needed for deployment
 winget install astral-sh.uv
@@ -13,7 +15,7 @@ npm install -g azurite
 
 Only needed if you're re-creating this project from scratch
 
-```powershell
+```shell
 mkdir nutrition_calculator; cd nutrition_calculator
 
 # Python project managed by uv
@@ -67,9 +69,14 @@ It listens on 127.0.0.1: blob `10000`, queue `10001`, table `10002`.
 
 **Terminal 2 – the Functions host**
 
-```powershell
+```shell
 uv sync                        # create/update .venv from uv.lock
+
+# powershell:
 .venv\Scripts\Activate.ps1     # func uses the python on PATH, so activate the venv
+# bash:
+source .venv/bin/activate
+
 func start
 ```
 
@@ -79,7 +86,7 @@ func start
 
 Locally, HTTP function keys aren't enforced, so no `?code=` is needed.
 
-```powershell
+```shell
 # Start the workflow (meal is optional: spaghetti | salad | omelette | anything else)
 $start = Invoke-RestMethod -Method Post -Uri "http://localhost:7071/api/orchestrators/nutrition?meal=salad"
 
@@ -89,6 +96,14 @@ $r.runtimeStatus
 
 # PowerShell abbreviates nested objects (e.g. "System.Object[]"), so print the output as JSON
 $r.output | ConvertTo-Json -Depth 5
+
+# Bash
+start=$(curl -s -X POST "http://localhost:7071/api/orchestrators/nutrition?meal=salad")
+echo "$start"
+
+# Poll its status (takes ~2-3 seconds)
+status_url=$(echo "$start" | python3 -c "import json, sys; print(json.load(sys.stdin)['statusQueryGetUri'])")
+curl -s "$status_url"
 ```
 
 ---
